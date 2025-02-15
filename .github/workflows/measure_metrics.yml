@@ -29,7 +29,6 @@ jobs:
           npm install -g @typescript-eslint/eslint-plugin
           npm install -g eslint-plugin-sonarjs
           npm install -g cloc
-          npm install typescript-metrics
       - id: measurement-4
         name: Record Measurement After Install dependencies
         uses: green-coding-solutions/eco-ci-energy-estimation@v4
@@ -45,11 +44,15 @@ jobs:
             "extends": [
               "plugin:@typescript-eslint/recommended",
               "plugin:sonarjs/recommended"
-            ]
+            ],
+            "rules": {
+              "sonarjs/cognitive-complexity": ["error", 15],
+              "sonarjs/no-duplicate-string": ["error", 3]
+            }
           }' > .eslintrc.json
       - name: Run ESLint Analysis
         run: |
-          echo "=== ESLint Analysis ===" > metrics_report.txt
+          echo "=== Code Quality and Complexity Analysis ===" > metrics_report.txt
           eslint . --ext .ts --format stylish >> metrics_report.txt || true
       - id: measurement-6
         name: Record Measurement After ESLint Analysis
@@ -69,21 +72,19 @@ jobs:
           json-output: true
           label: Lines of Code Analysis
           task: get-measurement
-      - name: Generate SonarJS Analysis
-        run: |
-          echo -e "\n=== SonarJS Analysis ===" >> metrics_report.txt
-          eslint . --ext .ts --plugin sonarjs --format json >> metrics/sonar_analysis.json || true
-      - id: measurement-10
-        name: Record Measurement After SonarJS Analysis
-        uses: green-coding-solutions/eco-ci-energy-estimation@v4
-        with:
-          json-output: true
-          label: SonarJS Analysis
-          task: get-measurement
       - name: Generate detailed reports
         run: |
           mkdir -p metrics
+          echo -e "\n=== Detailed ESLint Report ===" >> metrics_report.txt
+          eslint . --ext .ts --format json > metrics/eslint_report.json || true
           cp metrics_report.txt metrics/full_report.txt
+      - id: measurement-10
+        name: Record Measurement After Generate detailed reports
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Generate detailed reports
+          task: get-measurement
       - name: Upload metrics results
         uses: actions/upload-artifact@v4
         with:
