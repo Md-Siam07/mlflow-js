@@ -2,7 +2,7 @@ name: measure_metrics.yml
 on:
   push:
     branches:
-      - dev
+      - main
 
 jobs:
   analyze:
@@ -24,11 +24,12 @@ jobs:
       - name: Install dependencies
         run: |
           npm install -g typescript
-          npm install -g complexity-report
           npm install -g eslint
-          npm install -g ts-complexity-report
+          npm install -g @typescript-eslint/parser
+          npm install -g @typescript-eslint/eslint-plugin
+          npm install -g eslint-plugin-sonarjs
           npm install -g cloc
-          npm install -g sonarjs
+          npm install typescript-metrics
       - id: measurement-4
         name: Record Measurement After Install dependencies
         uses: green-coding-solutions/eco-ci-energy-estimation@v4
@@ -36,22 +37,21 @@ jobs:
           json-output: true
           label: Install dependencies
           task: get-measurement
-      - name: Analyze with ts-complexity-report
+      - name: Setup ESLint config
         run: |
-          echo "=== TypeScript Complexity Analysis ===" > metrics_report.txt
-          ts-complexity-report --formats text --output metrics_report.txt .
-      - id: measurement-6
-        name: Record Measurement After TypeScript Complexity Analysis
-        uses: green-coding-solutions/eco-ci-energy-estimation@v4
-        with:
-          json-output: true
-          label: TypeScript Complexity Analysis
-          task: get-measurement
+          echo '{
+            "parser": "@typescript-eslint/parser",
+            "plugins": ["@typescript-eslint", "sonarjs"],
+            "extends": [
+              "plugin:@typescript-eslint/recommended",
+              "plugin:sonarjs/recommended"
+            ]
+          }' > .eslintrc.json
       - name: Run ESLint Analysis
         run: |
-          echo -e "\n=== ESLint Analysis ===" >> metrics_report.txt
+          echo "=== ESLint Analysis ===" > metrics_report.txt
           eslint . --ext .ts --format stylish >> metrics_report.txt || true
-      - id: measurement-8
+      - id: measurement-6
         name: Record Measurement After ESLint Analysis
         uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
@@ -62,26 +62,28 @@ jobs:
         run: |
           echo -e "\n=== Lines of Code Analysis ===" >> metrics_report.txt
           cloc . --include-lang=TypeScript >> metrics_report.txt
-      - id: measurement-10
+      - id: measurement-8
         name: Record Measurement After Lines of Code Analysis
         uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
           json-output: true
           label: Lines of Code Analysis
           task: get-measurement
-      - name: Generate detailed reports
+      - name: Generate SonarJS Analysis
         run: |
-          mkdir -p metrics
-          # Generate JSON reports
-          ts-complexity-report --formats json --output metrics/complexity.json .
-          cp metrics_report.txt metrics/full_report.txt
-      - id: measurement-12
-        name: Record Measurement After Generate detailed reports
+          echo -e "\n=== SonarJS Analysis ===" >> metrics_report.txt
+          eslint . --ext .ts --plugin sonarjs --format json >> metrics/sonar_analysis.json || true
+      - id: measurement-10
+        name: Record Measurement After SonarJS Analysis
         uses: green-coding-solutions/eco-ci-energy-estimation@v4
         with:
           json-output: true
-          label: Generate detailed reports
+          label: SonarJS Analysis
           task: get-measurement
+      - name: Generate detailed reports
+        run: |
+          mkdir -p metrics
+          cp metrics_report.txt metrics/full_report.txt
       - name: Upload metrics results
         uses: actions/upload-artifact@v4
         with:
