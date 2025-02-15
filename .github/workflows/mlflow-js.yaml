@@ -1,6 +1,6 @@
-name: mlflow
+name: mlflow-js.yaml
 on:
-  pull_request:
+  push:
     branches:
       - main
 
@@ -8,37 +8,92 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.7'
-
       - name: Install dependencies
-        working-directory: ./mlflow
         run: npm ci
-
-      - name: Eslint
         working-directory: ./mlflow
+      - id: measurement-4
+        name: Record Measurement After Install dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install dependencies
+          task: get-measurement
+      - name: Eslint
         run: npm run lint
-
+        working-directory: ./mlflow
+      - id: measurement-6
+        name: Record Measurement After Eslint
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Eslint
+          task: get-measurement
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Run MLflow server
-        run: |
-          docker run -d -p 5002:5002 --name mlflow-container ghcr.io/mlflow/mlflow:latest mlflow server --host 0.0.0.0 --port 5002
+        run: 'docker run -d -p 5002:5002 --name mlflow-container ghcr.io/mlflow/mlflow:latest
+          mlflow server --host 0.0.0.0 --port 5002
+
           sleep 30
 
+          '
+      - id: measurement-9
+        name: Record Measurement After Run MLflow server
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run MLflow server
+          task: get-measurement
       - name: Run tests
-        working-directory: ./mlflow
         run: npm run test
-
+        working-directory: ./mlflow
+      - id: measurement-11
+        name: Record Measurement After Run tests
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Run tests
+          task: get-measurement
       - name: Stop MLflow server
         run: docker stop mlflow-container
-
+      - id: measurement-13
+        name: Record Measurement After Stop MLflow server
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Stop MLflow server
+          task: get-measurement
       - name: Build
-        working-directory: ./mlflow
         run: npm run build
+        working-directory: ./mlflow
+      - id: measurement-15
+        name: Record Measurement After Build
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Build
+          task: get-measurement
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json

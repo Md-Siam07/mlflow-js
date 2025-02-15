@@ -1,0 +1,102 @@
+name: measure_metrics.yml
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  analyze:
+    name: Code Metrics Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start Energy Measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: start-measurement
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          npm install -g typescript
+          npm install -g complexity-report
+          npm install -g eslint
+          npm install -g ts-complexity-report
+          npm install -g cloc
+          npm install -g sonarjs
+      - id: measurement-4
+        name: Record Measurement After Install dependencies
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Install dependencies
+          task: get-measurement
+      - name: Analyze with ts-complexity-report
+        run: |
+          echo "=== TypeScript Complexity Analysis ===" > metrics_report.txt
+          ts-complexity-report --formats text --output metrics_report.txt .
+      - id: measurement-6
+        name: Record Measurement After TypeScript Complexity Analysis
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: TypeScript Complexity Analysis
+          task: get-measurement
+      - name: Run ESLint Analysis
+        run: |
+          echo -e "\n=== ESLint Analysis ===" >> metrics_report.txt
+          eslint . --ext .ts --format stylish >> metrics_report.txt || true
+      - id: measurement-8
+        name: Record Measurement After ESLint Analysis
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: ESLint Analysis
+          task: get-measurement
+      - name: Count Lines of Code
+        run: |
+          echo -e "\n=== Lines of Code Analysis ===" >> metrics_report.txt
+          cloc . --include-lang=TypeScript >> metrics_report.txt
+      - id: measurement-10
+        name: Record Measurement After Lines of Code Analysis
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Lines of Code Analysis
+          task: get-measurement
+      - name: Generate detailed reports
+        run: |
+          mkdir -p metrics
+          # Generate JSON reports
+          ts-complexity-report --formats json --output metrics/complexity.json .
+          cp metrics_report.txt metrics/full_report.txt
+      - id: measurement-12
+        name: Record Measurement After Generate detailed reports
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          label: Generate detailed reports
+          task: get-measurement
+      - name: Upload metrics results
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-metrics
+          path: metrics/
+      - id: display-measurement
+        name: Display Energy Results
+        uses: green-coding-solutions/eco-ci-energy-estimation@v4
+        with:
+          json-output: true
+          task: display-results
+      - name: Save Total Energy Consumption Data
+        run: echo '${{ steps.final-measurement.outputs.data-total-json }}' > total_energy_consumption.json
+      - name: Upload Energy Consumption Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: total-energy-consumption
+          path: total_energy_consumption.json
